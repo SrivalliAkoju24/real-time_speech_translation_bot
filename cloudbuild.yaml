@@ -1,0 +1,42 @@
+# GCP Cloud Build — build, push, and deploy to Cloud Run
+# Usage: gcloud builds submit --config cloudbuild.yaml .
+# Required substitutions: _SERVICE_NAME, _REGION
+
+substitutions:
+  _SERVICE_NAME: speech-translation-bot
+  _REGION: us-central1
+  _IMAGE: gcr.io/$PROJECT_ID/${_SERVICE_NAME}
+
+steps:
+  # Step 1: Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - '${_IMAGE}:$COMMIT_SHA'
+      - '-t'
+      - '${_IMAGE}:latest'
+      - '.'
+
+  # Step 2: Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - '--all-tags'
+      - '${_IMAGE}'
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - '${_SERVICE_NAME}'
+      - '--image=${_IMAGE}:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=DEEPGRAM_API_KEY=$$DEEPGRAM_API_KEY,GROQ_API_KEY=$$GROQ_API_KEY,AZURE_TTS_KEY=$$AZURE_TTS_KEY,AZURE_REGION=$$AZURE_REGION'
+
+images:
+  - '${_IMAGE}:$COMMIT_SHA'
+  - '${_IMAGE}:latest'

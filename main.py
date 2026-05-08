@@ -13,14 +13,16 @@ from audio_handler import AudioHandler
 
 from deepgram import LiveOptions, LiveTranscriptionEvents
 
-# Load the .env file
-load_dotenv()
+import config
 
-# Access environment variables
-DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-AZURE_TTS_KEY = os.getenv("AZURE_TTS_KEY")
-AZURE_REGION = os.getenv("AZURE_REGION")
+# Validate required environment variables on startup
+config.validate()
+
+# Access environment variables via config
+DEEPGRAM_API_KEY = config.DEEPGRAM_API_KEY
+GROQ_API_KEY = config.GROQ_API_KEY
+AZURE_TTS_KEY = config.AZURE_TTS_KEY
+AZURE_REGION = config.AZURE_REGION
 
 # Initialize logging with timestamps and levels
 logging.basicConfig(
@@ -106,7 +108,9 @@ async def process_transcriptions():
         # Translate the transcription
         translation_start_time = time.time()
         translation = await groq_translate_async(
-            groq_client, sentence, from_language="en", to_language="hi"  # Example: English to Hindi
+            groq_client, sentence,
+            from_language=config.SOURCE_LANGUAGE,
+            to_language=config.TARGET_LANGUAGE,
         )
         translation_latency = time.time() - translation_start_time
 
@@ -167,15 +171,15 @@ async def main():
         # Define Deepgram connection options
         options = LiveOptions(
             model="nova",
-            language="en-US",
+            language=config.SOURCE_LANGUAGE,
             smart_format=True,
-            encoding="linear16",
-            channels=1,
-            sample_rate=16000,
+            encoding=config.ENCODING,
+            channels=config.CHANNELS,
+            sample_rate=config.SAMPLE_RATE,
             interim_results=True,
-            utterance_end_ms=2000,  # Increased from 1000 to 2000 ms
-            vad_events=False,        # Disabled VAD events
-            endpointing=1000,        # Increased endpointing to 1000 ms
+            utterance_end_ms=config.UTTERANCE_END_MS,
+            vad_events=False,
+            endpointing=config.ENDPOINTING_MS,
         )
 
         addons = {
