@@ -10,6 +10,7 @@
 ![Languages](https://img.shields.io/badge/Languages-17-brightgreen)
 ![Latency](https://img.shields.io/badge/Latency-<500ms-success)
 ![Async](https://img.shields.io/badge/Runtime-asyncio-purple)
+[![CI](https://github.com/SrivalliAkoju24/real-time_speech_translation_bot/actions/workflows/ci.yml/badge.svg)](https://github.com/SrivalliAkoju24/real-time_speech_translation_bot/actions/workflows/ci.yml)
 
 ---
 
@@ -23,45 +24,14 @@ Spoken audio → **Deepgram Nova** (real-time STT) → **Groq + LLaMA3-8B** (tra
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────┐
-│           AUDIO CAPTURE LAYER                │
-│  audio_handler.py  ·  Deepgram Microphone    │
-│  PCM 16-bit  ·  16kHz  ·  Mono channel       │
-└─────────────────────┬────────────────────────┘
-                      │ raw audio bytes (stream)
-                      ▼
-┌──────────────────────────────────────────────┐
-│         SPEECH-TO-TEXT LAYER                 │
-│  websocket_client.py  ·  Deepgram Nova       │
-│  WebSocket streaming  ·  keepalive enabled   │
-│  no_delay=true  ·  utterance_end=2s          │
-└─────────────────────┬────────────────────────┘
-                      │ final transcript (async event)
-                      ▼
-┌──────────────────────────────────────────────┐
-│         ASYNC TRANSCRIPTION QUEUE            │
-│  asyncio.Queue — decouples STT from LLM      │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-┌──────────────────────────────────────────────┐
-│         TRANSLATION LAYER                    │
-│  translation.py  ·  Groq API                 │
-│  Model: LLaMA3-8B-8192  ·  temp=0.2         │
-│  Sub-100ms inference via Groq LPU            │
-└─────────────────────┬────────────────────────┘
-                      │ translated text
-                      ▼
-┌──────────────────────────────────────────────┐
-│         TEXT-TO-SPEECH LAYER                 │
-│  tts.py  ·  Azure Cognitive Services         │
-│  WAV synthesis  ·  pydub playback            │
-│  Runs in separate thread (non-blocking)      │
-└─────────────────────┬────────────────────────┘
-                      │
-                      ▼
-               🔊 Audio Output
+```mermaid
+flowchart TD
+    A[🎤 Microphone\nLinear16 · 16kHz · Mono] --> B[audio_handler.py\nDeepgram Microphone SDK]
+    B -->|raw audio bytes stream| C[websocket_client.py\nDeepgram Nova WebSocket\nno_delay · keepalive · utterance_end=2s]
+    C -->|final transcript event| D[asyncio.Queue\nDecouples STT from LLM]
+    D --> E[translation.py\nGroq API · LLaMA3-8B\ntemp=0.2 · ~50–100ms]
+    E -->|translated text| F[tts.py\nAzure Cognitive Services\nWAV synthesis]
+    F -->|audio thread| G[🔊 pydub playback\nnon-blocking thread]
 ```
 
 ---
